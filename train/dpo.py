@@ -57,9 +57,9 @@ def main():
             range(min(config.max_train_samples, len(train_dataset)))
         )
 
-    policy_model = load_policy_model()
-    reference_model = load_frozen_reference_model()
-    tokenizer = load_tokenizer()
+    policy_model = load_policy_model(config.base_model_path)
+    reference_model = load_frozen_reference_model(config.base_model_path)
+    tokenizer = load_tokenizer(config.base_model_path)
 
     policy_model.train()
     reference_model.eval()
@@ -92,6 +92,7 @@ def main():
     with open(config.metrics_path, "w", encoding="utf-8") as f:
         f.write("===== DPO RESULT =====\n\n")
         f.write("Objective: -log sigmoid(beta * ((log pi_w - log pi_l) - (log ref_w - log ref_l)))\n")
+        f.write(f"Base model path: {config.base_model_path}\n")
         f.write(f"Train samples: {len(train_dataset)}\n")
         f.write(f"Eval samples : {len(eval_dataset)}\n")
         f.write(f"Average loss : {avg_loss:.4f}\n")

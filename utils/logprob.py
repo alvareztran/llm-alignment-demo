@@ -25,28 +25,41 @@ def response_token_mask(input_ids, attention_mask, response_start):
     return mask
 
 
-def response_log_prob(model, tokenizer, prompt, response, max_length):
-    """Sum log pi(response | prompt) over response tokens."""
-    device = model_device(model)
-    full_text = prompt + " " + response
-
+def prompt_response_inputs(tokenizer, prompt, response, max_length, device):
+    """Build one prompt+response sequence with an exact response token boundary."""
     prompt_ids = tokenizer(
         prompt,
         return_tensors="pt",
         truncation=True,
         max_length=max_length,
-    ).input_ids.to(device)
+    ).input_ids[0]
 
-    full = tokenizer(
-        full_text,
+    response_ids = tokenizer(
+        " " + response,
+        add_special_tokens=False,
         return_tensors="pt",
-        truncation=True,
-        max_length=max_length,
-    ).to(device)
+    ).input_ids[0]
 
-    response_start = min(prompt_ids.shape[1], full.input_ids.shape[1] - 1)
-    log_probs = token_log_probs(model, full.input_ids, full.attention_mask)
-    mask = response_token_mask(full.input_ids, full.attention_mask, response_start)
+    if prompt_ids.numel() >= max_length:
+        prompt_ids = prompt_ids[: max_length - 1]
+
+    available_response_tokens = max(max_length - prompt_ids.numel(), 0)
+    response_ids = response_ids[:available_response_tokens]
+
+    input_ids = torch.cat([prompt_ids, response_ids]).unsqueeze(0).to(device)
+    attention_mask = torch.ones_like(input_ids)
+    response_start = prompt_ids.numel()
+    return input_ids, attention_mask, response_start
+
+
+def response_log_prob(model, tokenizer, prompt, response, max_length):
+    """Sum log pi(response | prompt) over response tokens."""
+    device = model_device(model)
+    input_ids, attention_mask, response_start = prompt_response_inputs(
+        tokenizer, prompt, response, max_length, device
+    )
+    log_probs = token_log_probs(model, input_ids, attention_mask)
+    mask = response_token_mask(input_ids, attention_mask, response_start)
     return (log_probs * mask).sum()
 
 

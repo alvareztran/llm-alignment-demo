@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from transformers import AutoModel
 
-from models.load_model import DEVICE, MODEL_NAME, get_dtype
+from models.load_model import DEVICE, get_dtype, resolve_model_path
 
 
 class ValueModel(nn.Module):
@@ -31,8 +31,9 @@ class ValueModel(nn.Module):
         torch.save(self.value_head.state_dict(), os.path.join(path, "value_head.pt"))
 
 
-def load_value_model():
-    base_model = AutoModel.from_pretrained(MODEL_NAME, torch_dtype=get_dtype())
+def load_value_model(model_name_or_path=None):
+    resolved_model = resolve_model_path(model_name_or_path)
+    base_model = AutoModel.from_pretrained(resolved_model, torch_dtype=get_dtype())
     base_model.to(DEVICE)
     hidden_size = base_model.config.hidden_size
     value_model = ValueModel(base_model, hidden_size)

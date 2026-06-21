@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DPOConfig:
+    base_model_path: str = "./outputs/sft_model"
     output_dir: str = "./outputs/dpo_model"
     metrics_path: str = "./outputs/dpo_metrics.txt"
     learning_rate: float = 5e-6

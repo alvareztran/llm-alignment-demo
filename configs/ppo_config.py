@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class PPOConfig:
+    base_model_path: str = "./outputs/sft_model"
     output_dir: str = "./outputs/ppo_model"
     value_output_dir: str = "./outputs/ppo_value_model"
     metrics_path: str = "./outputs/ppo_metrics.txt"
