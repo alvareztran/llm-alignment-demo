@@ -1,0 +1,11 @@
+torch>=2.5.0
+transformers>=4.53.0
+datasets>=3.6.0
+accelerate>=1.8.0
+peft>=0.16.0
+sentencepiece>=0.2.0
+protobuf>=6.31.0
+evaluate>=0.4.3
+tensorboard>=2.19.0
+matplotlib>=3.10.3
+pandas>=2.3.0
