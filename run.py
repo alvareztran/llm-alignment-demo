@@ -1,33 +1,42 @@
-import os
 import sys
+import subprocess
+
+
+def run_command(args):
+    subprocess.run([sys.executable, *args], check=False)
 
 
 def run_sft():
     print("\n" + "=" * 60)
     print("RUNNING MINI SFT TRAINING")
     print("=" * 60)
-    os.system(f'"{sys.executable}" train/sft.py')
+    run_command(["train/sft.py"])
 
 
 def run_dpo():
     print("\n" + "=" * 60)
     print("RUNNING DPO TRAINING")
     print("=" * 60)
-    os.system(f'"{sys.executable}" train/dpo.py')
+    run_command(["train/dpo.py"])
 
 
 def run_ppo():
     print("\n" + "=" * 60)
     print("RUNNING PPO TRAINING")
     print("=" * 60)
-    os.system(f'"{sys.executable}" train/ppo.py')
+    run_command(["train/ppo.py"])
 
 
 def run_compare():
     print("\n" + "=" * 60)
     print("RUNNING COMPARISON")
     print("=" * 60)
-    os.system(f'"{sys.executable}" evaluation/compare.py')
+    prompt = input("Enter prompt for compare: ").strip()
+
+    if prompt:
+        run_command(["evaluation/compare.py", "--prompt", prompt])
+    else:
+        run_command(["evaluation/compare.py"])
 
 
 def main():

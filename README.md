@@ -341,6 +341,39 @@ So sánh model:
 python evaluation/compare.py
 ```
 
+Khi chạy lệnh trên, chương trình sẽ hỏi prompt để bạn nhập trực tiếp.
+
+Có thể truyền prompt ngay từ command line:
+
+```powershell
+python evaluation/compare.py --prompt "Human: Explain what Artificial Intelligence is.\nAssistant:"
+```
+
+Hoặc nhập câu hỏi ngắn, chương trình sẽ tự bọc theo format chat:
+
+```powershell
+python evaluation/compare.py "Explain what Artificial Intelligence is."
+```
+
+Một số tham số có thể chỉnh khi generate:
+
+```powershell
+python evaluation/compare.py --prompt "Human: What is RLHF?\nAssistant:" --max-new-tokens 160 --temperature 0.7 --top-p 0.9
+```
+
+Sau khi compare xong, project sẽ lưu cả bản text và bản HTML:
+
+```text
+outputs/compare_result.txt
+outputs/compare_report.html
+```
+
+Có thể đổi đường dẫn HTML report:
+
+```powershell
+python evaluation/compare.py --prompt "Human: What is RLHF?\nAssistant:" --html-output outputs/my_report.html
+```
+
 Mặc định bước compare chỉ so sánh `base`, `dpo` và `ppo`. SFT model đóng vai trò checkpoint đầu vào cho DPO/PPO, chưa được hiển thị như một cột riêng trong `evaluation/compare.py`.
 
 Chạy sanity tests:
@@ -378,7 +411,8 @@ outputs/
 ├── sft_metrics.txt
 ├── dpo_metrics.txt
 ├── ppo_metrics.txt
-└── compare_result.txt
+├── compare_result.txt
+└── compare_report.html
 ```
 
 Ý nghĩa:
@@ -391,6 +425,7 @@ outputs/
 - `outputs/dpo_metrics.txt`: loss và thông tin train DPO
 - `outputs/ppo_metrics.txt`: reward, KL, policy loss, value loss của PPO
 - `outputs/compare_result.txt`: output so sánh base/DPO/PPO
+- `outputs/compare_report.html`: giao diện HTML để xem 3 câu trả lời cạnh nhau
 
 ## 12. Cách diễn giải kết quả
 
