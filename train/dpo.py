@@ -3,15 +3,17 @@ import sys
 import time
 from pathlib import Path
 
-import torch
-import torch.nn.functional as F
-
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from configs.dpo_config import get_dpo_config
+# Import datasets (via prepare_dataset) before torch to prevent Windows DLL conflicts
 from data.prepare_dataset import prepare_dataset
+
+import torch
+import torch.nn.functional as F
+
+from configs.dpo_config import get_dpo_config
 from models.load_model import load_tokenizer
 from models.policy_reference import load_frozen_reference_model, load_policy_model
 from utils.logprob import response_log_prob

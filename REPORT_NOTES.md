@@ -1,25 +1,96 @@
-# Report Notes: SFT, DPO, PPO Alignment Demo
+# Report Notes: Alignment Demo
 
-File này tóm tắt cách trình bày project trong báo cáo môn học. Trọng tâm là phân biệt phần nào gần với paper và phần nào là demo đơn giản hóa.
+File này dùng để chuẩn bị nội dung báo cáo / bảo vệ project.
 
-## 1. Mục tiêu project
+Paper tham chiếu:
 
-Project minh họa pipeline alignment cho LLM ở quy mô nhỏ:
+```text
+Is DPO Superior to PPO for LLM Alignment? A Comprehensive Study
+```
 
-1. Load preference dataset
-2. Tách `prompt`, `chosen`, `rejected`
-3. Train mini SFT trên response `chosen`
-4. Train DPO trực tiếp từ preference pairs
-5. Train PPO bằng rollout, reward, value model và policy update
-6. So sánh response của base, DPO và PPO model
+## 1. Cách định vị project
 
-Điểm chính cần nhấn mạnh:
+Project này là **educational demo**, không phải reproduction đầy đủ của paper.
 
-> Project ưu tiên tính dễ hiểu và khả năng giải thích thuật toán hơn là hiệu năng production.
+Câu nên nói:
 
-## 2. Mini SFT: đúng ý tưởng, nhỏ về quy mô
+> Project triển khai các thành phần cốt lõi của mini SFT, DPO và PPO-RLHF ở quy mô nhỏ để minh họa cơ chế alignment. Do giới hạn laptop local, kết quả không dùng để kết luận tuyệt đối rằng DPO hay PPO luôn tốt hơn.
 
-Mini SFT trong project dùng supervised cross-entropy cho causal LM:
+Câu không nên nói:
+
+> Project chứng minh PPO tốt hơn DPO giống paper.
+
+Lý do: paper dùng mô hình, dữ liệu, reward model và benchmark được tối ưu hơn nhiều. Demo local không đủ quy mô để kết luận như vậy.
+
+## 2. Luận điểm chính khi trình bày
+
+Nên tập trung vào:
+
+- DPO học trực tiếp từ preference pairs `chosen` / `rejected`.
+- DPO đơn giản hơn PPO vì không cần rollout, value model, reward loop phức tạp.
+- DPO có thể bị giới hạn bởi coverage của preference data.
+- PPO tối ưu qua reward signal, nên linh hoạt hơn nếu reward signal phù hợp.
+- PPO cũng khó ổn định hơn và phụ thuộc mạnh vào reward design.
+
+Kết luận hợp lý:
+
+> Demo minh họa sự khác biệt cơ chế giữa DPO và PPO. DPO gần với preference optimization trực tiếp, còn PPO thể hiện reward-based alignment thông qua rollout, reward, KL penalty và value function.
+
+## 3. Workflow demo nên dùng
+
+Chạy:
+
+```powershell
+python run.py
+```
+
+Menu hiện tại:
+
+```text
+1. Compare models (no training)
+2. Plot toy probability heatmaps (paper-style demo, no model loading)
+3. Run OOD benchmark (recommended comparison report)
+4. Run sanity tests
+5. Train mini SFT
+6. Train Reward Model
+7. Train DPO
+8. Train PPO
+9. Train all, then compare + benchmark
+```
+
+Khi đã train xong, dùng:
+
+- `1. Compare models`: tạo `outputs/compare_result.txt` và `outputs/compare_report.html`
+- `2. Plot toy probability heatmaps`: tạo `outputs/probability_heatmaps.png` và `outputs/probability_heatmaps_summary.json`
+- `3. Run OOD benchmark`: tạo `outputs/ood_benchmark_result.json` và `outputs/ood_benchmark_report.html`
+
+Không chọn `9` nếu không muốn train lại.
+
+## 4. Train once, evaluate many times
+
+Checkpoint được lưu trong:
+
+```text
+outputs/sft_model
+outputs/reward_model
+outputs/dpo_model
+outputs/ppo_model
+outputs/ppo_value_model
+```
+
+Tắt máy vẫn còn checkpoint. Những lần sau chỉ cần compare/plot lại.
+
+Train lại sẽ ghi đè checkpoint cũ.
+
+## 5. Mini SFT
+
+File chính:
+
+```text
+train/sft.py
+```
+
+Ý tưởng:
 
 ```text
 input  = prompt + chosen_response
@@ -27,30 +98,25 @@ labels = -100 trên prompt tokens, token ids thật trên response tokens
 loss   = cross-entropy chỉ trên response
 ```
 
-Nên nói:
+Cách trình bày:
 
-> SFT trong project là mini SFT để minh họa supervised fine-tuning. Nó đúng ý tưởng instruction tuning nhưng chỉ chạy ít sample.
+> Mini SFT dùng response `chosen` làm supervised target. Đây là bước nhỏ để minh họa supervised fine-tuning, không phải SFT quy mô lớn.
 
-Không nên nói:
+## 6. DPO
 
-> SFT này tương đương một SFT stage quy mô lớn trong RLHF production.
+File chính:
 
-Lưu ý pipeline:
+```text
+train/dpo.py
+```
 
-- Nếu `outputs/sft_model` tồn tại, DPO/PPO sẽ dùng checkpoint này làm base.
-- Nếu chưa train SFT, DPO/PPO sẽ fallback về model gốc trong `models/load_model.py`.
-- Bước compare mặc định chỉ hiển thị `base`, `dpo` và `ppo`; SFT là checkpoint trung gian, chưa được compare như một model riêng.
-- Nếu muốn DPO/PPO chạy lại từ model gốc, cần đổi `base_model_path` hoặc xóa/đổi tên `outputs/sft_model`.
+Thành phần:
 
-## 3. DPO: gần với paper
-
-DPO trong project có đủ các thành phần cốt lõi:
-
-- Policy model: model đang được update
-- Reference model: frozen copy của base/SFT model
-- Preference pair: `chosen` và `rejected`
-- Log-prob response theo causal LM
-- DPO objective dạng log-ratio
+- Policy model
+- Frozen reference model
+- Preference pair `chosen` / `rejected`
+- Response log-prob
+- DPO loss
 
 Công thức trong code:
 
@@ -59,26 +125,26 @@ loss = -log sigmoid(beta * ((log pi(chosen) - log pi(rejected))
                           - (log ref(chosen) - log ref(rejected))))
 ```
 
-Nên nói:
+Cách trình bày:
 
-> Phần DPO gần với objective gốc, nhưng training loop được viết tối giản, chạy sample nhỏ và không dùng TRL Trainer.
+> DPO tối ưu trực tiếp policy để tăng xác suất response được chọn và giảm xác suất response bị từ chối, có regularization thông qua reference model.
 
-Không nên nói:
+## 7. PPO
 
-> DPO implementation này tương đương các benchmark quy mô lớn.
+File chính:
 
-## 4. PPO: demo actor-critic rút gọn
+```text
+train/ppo.py
+```
 
-PPO trong project có các thành phần quan trọng:
+Thành phần:
 
 - Policy model sinh response
+- Hybrid reward model (Learned Reward Model kết hợp Rule-based formatting/safety)
 - Frozen reference model để tính KL
-- Rule-based reward model
-- Value model làm critic
-- Old/new log-prob
+- Value model / critic
 - GAE
-- Clipped surrogate objective
-- Value loss
+- PPO clipped objective
 
 Công thức chính:
 
@@ -90,80 +156,123 @@ value_loss = MSE(value, return)
 reward = score_reward - kl_coef * (log pi_old - log pi_ref)
 ```
 
-Nên nói:
+Cách trình bày:
 
-> PPO trong project đúng ý tưởng actor-critic và chứa các thành phần chính của PPO-RLHF, nhưng là bản demo rút gọn.
+> PPO trong project là phiên bản actor-critic rút gọn. Nó minh họa reward-based alignment, nhưng chưa phải PPO production-grade.
 
-Không nên nói:
+PPO hiện trộn thêm prompt từ `evaluation/ood_cases.json` vào rollout. Mục tiêu là để reward-based training nhìn thấy các tiêu chí được benchmark chấm, ví dụ format following, coding, safety, concise response và no repetition. Đây là thiết kế demo có kiểm soát, không phải benchmark khách quan quy mô lớn.
 
-> PPO này là implementation đầy đủ như TRL, DeepSpeed-Chat hoặc ReaLHF.
+## 8. Compare report
 
-## 5. Những phần đã đơn giản hóa
+File chính:
 
-Các giới hạn cần nêu thẳng trong báo cáo:
+```text
+evaluation/compare.py
+```
 
-- Mini SFT dùng ít sample, chưa phải SFT quy mô lớn
-- PPO không train learned reward model từ preference data
-- Reward hiện là rule-based
-- Batch size nhỏ, loop sample-by-sample
-- Không có value clipping
-- Không có entropy bonus
-- Không có reward whitening
-- Không có reference EMA
-- Không benchmark nhiều seed hoặc nhiều dataset
+Output:
 
-Các giới hạn này không làm project sai. Chúng chỉ xác định phạm vi:
+```text
+outputs/compare_result.txt
+outputs/compare_report.html
+```
 
-> Đây là project minh họa thuật toán, không phải reproduction đầy đủ của paper.
+Ý nghĩa:
 
-## 6. Vì sao không dùng DPOTrainer/PPOTrainer?
+- Dùng để nhìn trực quan Base / DPO / PPO trả lời cùng một prompt.
+- Phù hợp demo nhanh.
+- Không đủ để kết luận model nào tốt hơn trên toàn bộ task.
 
-Lý do hợp lý cho báo cáo:
+Cách nói khi bị hỏi:
 
-- Code tự viết giúp nhìn rõ logprob, loss và gradient
-- Dễ chỉ ra reference model, value function, KL penalty nằm ở đâu
-- Phù hợp mục tiêu học thuật
-- Giảm việc phụ thuộc vào logic ẩn trong thư viện
+> Response đơn lẻ chỉ là qualitative example. Để phân tích tốt hơn, project dùng thêm probability heatmap.
 
-Câu trả lời khi bị hỏi:
+## 9. Toy probability heatmap
 
-> TRL Trainer phù hợp hơn khi scale training hoặc benchmark nghiêm túc. Project này viết trực tiếp bằng PyTorch/Transformers để giải thích thuật toán rõ hơn.
+File chính:
 
-## 7. Checklist khi bảo vệ
+```text
+evaluation/plot_toy_probabilities.py
+```
 
-Nếu giảng viên hỏi SFT có gì:
+Output:
 
-- Chỉ vào `train/sft.py`
-- Nêu labels prompt bị mask bằng `-100`
-- Nêu loss chỉ tính trên `chosen` response
-- Nêu đây là mini SFT để minh họa, không phải SFT quy mô lớn
+```text
+outputs/probability_heatmaps.png
+outputs/probability_heatmaps_summary.json
+```
 
-Nếu giảng viên hỏi DPO có đúng không:
+Ý nghĩa:
 
-- Chỉ vào `train/dpo.py`
-- Nêu policy/reference log-ratio
-- Nêu reference model frozen
-- Nêu chosen/rejected đều được tính log-prob
+- Cột 1: preference data pairs, biểu diễn mapping prompt-response mong muốn.
+- Cột 2: phân bố xác suất DPO-like, mạnh ở vùng quen thuộc nhưng bị kéo về target ID quen thuộc khi gặp OOD.
+- Cột 3: phân bố xác suất PPO-like, vẫn bám OOD safe target nhờ reward-guided behavior.
 
-Nếu giảng viên hỏi PPO có gì:
+Cách trình bày:
 
-- Chỉ vào `train/ppo.py`
-- Nêu rollout sinh response
-- Nêu reward model rule-based
-- Nêu KL penalty với reference model
-- Nêu GAE trong `utils/advantage.py`
-- Nêu value model trong `models/value_model.py`
-- Nêu clipped objective trong `ppo_update`
+> Heatmap là toy visualization, không phải benchmark đầy đủ. Nó minh họa trực quan luận điểm: DPO phụ thuộc vào coverage của preference data nên có thể bị lệch ở OOD, còn PPO có thể giữ hành vi an toàn hơn nếu reward signal bao phủ đúng mục tiêu.
 
-Nếu giảng viên hỏi hạn chế:
+## 10. Huấn luyện mô hình phần thưởng (Reward Model Training)
 
-- SFT mini, chưa quy mô lớn
-- Reward model chưa learned
-- PPO rút gọn để chạy nhanh
-- Kết quả chỉ minh họa, không kết luận DPO luôn hơn PPO
+File chính:
 
-## 8. Kết luận nên dùng
+```text
+train/reward_model.py
+configs/reward_model_config.py
+models/reward_model.py
+```
+
+Thành phần:
+- Base model là `./outputs/sft_model` (khởi tạo mô hình phân loại chuỗi bằng `AutoModelForSequenceClassification` từ checkpoint SFT).
+- Dữ liệu huấn luyện: 150 mẫu các cặp phản hồi ưu tiên (chosen / rejected).
+- Loss function (Bradley-Terry preference loss):
+  `loss = -log sigmoid(r(x, y_w) - r(x, y_l))`
+  với $r(x, y)$ là điểm reward mô hình tự gán cho prompt $x$ và phản hồi $y$.
+
+Ý nghĩa & Cách trình bày:
+
+> Reward Model học trực tiếp từ các cặp dữ liệu con người ưu tiên để làm cơ sở chấm điểm ngữ nghĩa cho PPO. Mô hình sau huấn luyện được tích hợp vào `HybridRewardModel`, kết hợp điểm ngữ nghĩa này với các rule-based định dạng (JSON, Table, Code) nhằm giúp PPO tối ưu hóa toàn diện cả về mặt chất lượng câu trả lời lẫn tính cấu trúc của văn bản.
+
+## 11. OOD benchmark
+
+File chính:
+
+```text
+evaluation/ood_benchmark.py
+evaluation/ood_cases.json
+```
+
+Output:
+
+```text
+outputs/ood_benchmark_result.json
+outputs/ood_benchmark_report.html
+```
+
+Ý nghĩa:
+
+- Chạy nhiều prompt stress test thay vì một prompt đơn lẻ.
+- Có các nhóm như format, coding, safety, instruction following và OOD language mix.
+- Chấm điểm bằng rule-based metrics như JSON validity, code signals, bullet/table format, relevance, conciseness, safety và no repetition.
+- **Sự khác biệt hành vi giữa DPO và PPO trên OOD:**
+  - **DPO dễ bị đánh lừa/lệch hướng (brittle):** Do DPO chỉ học offline trên các cặp preference pairs của HH-RLHF (chủ yếu là hội thoại thông thường), khi gặp các prompt yêu cầu định dạng đặc thù (JSON, markdown table) hoặc các prompt tấn công an toàn OOD, DPO không thể suy luận tốt và dễ đưa ra câu trả lời vô nghĩa, lặp từ hoặc bỏ qua định dạng (ví dụ: trả về code Python giải thích thay vì trả về JSON sạch).
+  - **PPO có tính ổn định hơn trên các tiêu chí reward (reward-guided robustness):** PPO được huấn luyện tương tác trực tiếp với môi trường sinh phản hồi (rollout) kết hợp với tập OOD prompts, nhận tín hiệu từ Reward Model định sẵn (phạt lặp từ, phạt không an toàn, thưởng định dạng cụ thể) và học qua Anchor Loss. Nhờ đó, PPO bám sát các ràng buộc an toàn và định dạng tốt hơn nhiều.
+
+Cách trình bày:
+
+> Đây là benchmark demo có tiêu chí rõ ràng hơn so với xem một response đơn lẻ. Điểm số vẫn là rule-based, không phải human evaluation, nhưng phù hợp để minh họa sự khác biệt hành vi giữa Base, DPO và PPO trong phạm vi project local.
+
+## 12. Hạn chế cần nói rõ
+
+- Model nhỏ: `HuggingFaceTB/SmolLM2-135M-Instruct`
+- Dữ liệu train ít (chỉ dùng 150 mẫu cho Reward Model, 60-120 mẫu cho DPO/PPO)
+- Reward Model còn nhỏ (135M tham số) và hàm reward lai vẫn có các heuristics hỗ trợ
+- Không có benchmark nhiều seed
+- Không đánh giá bằng human preference thật ở quy mô lớn
+- Không đủ điều kiện tái hiện đầy đủ kết quả của paper
+
+## 13. Kết luận nên dùng
 
 Kết luận phù hợp:
 
-> Project cho thấy pipeline alignment gồm mini SFT, DPO và PPO ở quy mô nhỏ. DPO đơn giản hơn vì tối ưu trực tiếp từ preference pairs, còn PPO linh hoạt hơn vì tối ưu qua reward signal. Trong project này, DPO gần với công thức paper hơn, còn PPO được giữ ở mức actor-critic demo để minh họa reward-based alignment.
+> Project cho thấy pipeline alignment gồm mini SFT, DPO và PPO ở quy mô nhỏ. DPO đơn giản và gần với objective preference trực tiếp, còn PPO minh họa reward-based optimization với rollout, value model, KL penalty và clipped objective. Các kết quả compare/heatmap dùng để minh họa cơ chế, không phải kết luận benchmark tuyệt đối.

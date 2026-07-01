@@ -3,7 +3,7 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-MODEL_NAME = "HuggingFaceTB/SmolLM-135M-Instruct"
+MODEL_NAME = "HuggingFaceTB/SmolLM2-135M-Instruct"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -17,10 +17,14 @@ def get_dtype():
 def resolve_model_path(model_name_or_path=None):
     if not model_name_or_path:
         return MODEL_NAME
-    if os.path.isdir(model_name_or_path):
-        return model_name_or_path
     if os.path.isabs(model_name_or_path) or model_name_or_path.startswith("."):
-        return MODEL_NAME
+        if os.path.isdir(model_name_or_path):
+            return model_name_or_path
+        else:
+            raise FileNotFoundError(
+                f"Local model path '{model_name_or_path}' was specified but does not exist. "
+                "Ensure training has run first and check your paths."
+            )
     return model_name_or_path
 
 

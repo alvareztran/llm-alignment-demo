@@ -14,6 +14,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from evaluation.generate import generate_response
 from models.load_model import MODEL_NAME, load_tokenizer
+from ppo.reward import compute_reward
 
 MODEL_PATHS = {
     "base": MODEL_NAME,
@@ -108,28 +109,32 @@ def save_result(result, path="./outputs/compare_result.txt"):
         f.write(result["prompt"] + "\n\n")
 
         f.write("===== BASE =====\n")
+        f.write(f"Reward score: {compute_reward(result['prompt'], result['base']):.4f}\n")
         f.write(result["base"] + "\n\n")
 
         f.write("===== DPO =====\n")
+        f.write(f"Reward score: {compute_reward(result['prompt'], result['dpo']):.4f}\n")
         f.write(result["dpo"] + "\n\n")
 
         f.write("===== PPO =====\n")
+        f.write(f"Reward score: {compute_reward(result['prompt'], result['ppo']):.4f}\n")
         f.write(result["ppo"] + "\n\n")
 
     print(f"\nSaved to {path}")
 
 
-def response_stats(text: str):
+def response_stats(prompt: str, text: str):
     clean_text = text.strip()
     return {
         "chars": len(clean_text),
         "words": len(clean_text.split()),
+        "reward_score": compute_reward(prompt, clean_text),
     }
 
 
-def render_response_card(model_key: str, response: str) -> str:
+def render_response_card(model_key: str, prompt: str, response: str) -> str:
     info = MODEL_DISPLAY[model_key]
-    stats = response_stats(response)
+    stats = response_stats(prompt, response)
 
     return f"""
         <article class="model-card" style="--accent: {info['accent']}">
@@ -144,6 +149,7 @@ def render_response_card(model_key: str, response: str) -> str:
             <div class="stats">
                 <span>{stats['words']} words</span>
                 <span>{stats['chars']} chars</span>
+                <span>reward {stats['reward_score']:.2f}</span>
             </div>
 
             <pre class="response-text">{escape(response)}</pre>
@@ -156,7 +162,7 @@ def save_html_report(result, path="./outputs/compare_report.html"):
 
     created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     cards = "\n".join(
-        render_response_card(model_key, result.get(model_key, ""))
+        render_response_card(model_key, result["prompt"], result.get(model_key, ""))
         for model_key in MODEL_PATHS
     )
 

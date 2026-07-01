@@ -6,15 +6,15 @@ class DPOConfig:
     base_model_path: str = "./outputs/sft_model"
     output_dir: str = "./outputs/dpo_model"
     metrics_path: str = "./outputs/dpo_metrics.txt"
-    learning_rate: float = 5e-6
+    learning_rate: float = 5e-5
     beta: float = 0.1
-    num_train_epochs: int = 1
+    num_train_epochs: int = 3
     train_batch_size: int = 2
     eval_batch_size: int = 2
     max_length: int = 512
     max_prompt_length: int = 256
     logging_steps: int = 10
-    max_train_samples: int | None = 50
+    max_train_samples: int | None = 120
 
 
 def get_dpo_config():
