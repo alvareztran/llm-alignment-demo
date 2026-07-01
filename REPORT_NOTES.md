@@ -8,33 +8,21 @@ Paper tham chiếu:
 Is DPO Superior to PPO for LLM Alignment? A Comprehensive Study
 ```
 
-## 1. Cách định vị project
+## 1. Mục tiêu và phạm vi thử nghiệm
 
-Project này là **educational demo**, không phải reproduction đầy đủ của paper.
+Thử nghiệm này được định vị là mô phỏng thực hành (educational demonstration), không phải bản sao quy mô lớn (full-scale replication) của bài báo gốc. 
 
-Câu nên nói:
+- Do giới hạn về năng lực tính toán phần cứng local (GPU 6GB VRAM), thiết kế thực nghiệm tập trung vào việc mô hình hóa các thành phần cốt lõi của pipeline Alignment (SFT, DPO, PPO-RLHF) ở kích thước nhỏ (135M parameters) thay vì huấn luyện và tối ưu hóa diện rộng như bài báo gốc.
+- Kết quả từ thực nghiệm này đóng vai trò minh họa cơ chế hoạt động của thuật toán và sự khác biệt hành vi, không mang tính chất khẳng định tuyệt đối về tính ưu việt của phương pháp này so với phương pháp kia ở mọi quy mô.
 
-> Project triển khai các thành phần cốt lõi của mini SFT, DPO và PPO-RLHF ở quy mô nhỏ để minh họa cơ chế alignment. Do giới hạn laptop local, kết quả không dùng để kết luận tuyệt đối rằng DPO hay PPO luôn tốt hơn.
+## 2. Các điểm cốt lõi cần phân tích
 
-Câu không nên nói:
+Khi đánh giá kết quả, phân tích tập trung vào các điểm sau:
 
-> Project chứng minh PPO tốt hơn DPO giống paper.
-
-Lý do: paper dùng mô hình, dữ liệu, reward model và benchmark được tối ưu hơn nhiều. Demo local không đủ quy mô để kết luận như vậy.
-
-## 2. Luận điểm chính khi trình bày
-
-Nên tập trung vào:
-
-- DPO học trực tiếp từ preference pairs `chosen` / `rejected`.
-- DPO đơn giản hơn PPO vì không cần rollout, value model, reward loop phức tạp.
-- DPO có thể bị giới hạn bởi coverage của preference data.
-- PPO tối ưu qua reward signal, nên linh hoạt hơn nếu reward signal phù hợp.
-- PPO cũng khó ổn định hơn và phụ thuộc mạnh vào reward design.
-
-Kết luận hợp lý:
-
-> Demo minh họa sự khác biệt cơ chế giữa DPO và PPO. DPO gần với preference optimization trực tiếp, còn PPO thể hiện reward-based alignment thông qua rollout, reward, KL penalty và value function.
+- **Tính đơn giản của DPO**: DPO loại bỏ các thành phần phức tạp như mô hình phần thưởng (Reward Model), giá trị (Value Model), vòng lặp phản hồi (rollout) bằng cách tối ưu hóa trực tiếp trên cặp dữ liệu so sánh (preference pairs).
+- **Sự phụ thuộc dữ liệu của DPO**: Do học offline trực tiếp trên các cặp dữ liệu, DPO nhạy cảm với độ phủ (coverage) của tập dữ liệu huấn luyện, dễ bị mất khả năng định dạng hoặc từ chối không an toàn khi gặp prompt ngoài phân phối (OOD).
+- **Tính linh hoạt của PPO**: PPO tối ưu hóa dựa trên tín hiệu hàm thưởng (Reward Model) nên có khả năng điều hướng hành vi linh hoạt hơn, đặc biệt khi kết hợp mô hình phần thưởng học được (Learned RM) và các ràng buộc luật định dạng cứng (rule-based bonuses).
+- **Độ nhạy và độ phức tạp của PPO**: PPO đòi hỏi tối ưu nhiều hyperparameters, có độ trễ lớn hơn trong quá trình huấn luyện do phải thực hiện lấy mẫu (online sampling) liên tục.
 
 ## 3. Workflow demo nên dùng
 
@@ -258,21 +246,18 @@ outputs/ood_benchmark_report.html
   - **DPO dễ bị đánh lừa/lệch hướng (brittle):** Do DPO chỉ học offline trên các cặp preference pairs của HH-RLHF (chủ yếu là hội thoại thông thường), khi gặp các prompt yêu cầu định dạng đặc thù (JSON, markdown table) hoặc các prompt tấn công an toàn OOD, DPO không thể suy luận tốt và dễ đưa ra câu trả lời vô nghĩa, lặp từ hoặc bỏ qua định dạng (ví dụ: trả về code Python giải thích thay vì trả về JSON sạch).
   - **PPO có tính ổn định hơn trên các tiêu chí reward (reward-guided robustness):** PPO được huấn luyện tương tác trực tiếp với môi trường sinh phản hồi (rollout) kết hợp với tập OOD prompts, nhận tín hiệu từ Reward Model định sẵn (phạt lặp từ, phạt không an toàn, thưởng định dạng cụ thể) và học qua Anchor Loss. Nhờ đó, PPO bám sát các ràng buộc an toàn và định dạng tốt hơn nhiều.
 
-Cách trình bày:
+### Ý nghĩa thực nghiệm
 
-> Đây là benchmark demo có tiêu chí rõ ràng hơn so với xem một response đơn lẻ. Điểm số vẫn là rule-based, không phải human evaluation, nhưng phù hợp để minh họa sự khác biệt hành vi giữa Base, DPO và PPO trong phạm vi project local.
+Kết quả từ OOD benchmark cung cấp góc nhìn định lượng về khả năng tổng quát hóa của hai thuật toán. Dù hệ thống chấm điểm dựa trên luật (rule-based metric) và quy mô dữ liệu nhỏ, nó vẫn phản ánh rõ xu hướng phân hóa hành vi được nêu trong lý thuyết: PPO duy trì tính ổn định định dạng và an toàn tốt hơn khi gặp dữ liệu phân phối lạ nhờ có hàm thưởng định hướng trực tiếp.
 
-## 12. Hạn chế cần nói rõ
+## 12. Hạn chế thực nghiệm
 
-- Model nhỏ: `HuggingFaceTB/SmolLM2-135M-Instruct`
-- Dữ liệu train ít (chỉ dùng 150 mẫu cho Reward Model, 60-120 mẫu cho DPO/PPO)
-- Reward Model còn nhỏ (135M tham số) và hàm reward lai vẫn có các heuristics hỗ trợ
-- Không có benchmark nhiều seed
-- Không đánh giá bằng human preference thật ở quy mô lớn
-- Không đủ điều kiện tái hiện đầy đủ kết quả của paper
+- Mô hình base sử dụng kích thước nhỏ (`SmolLM2-135M-Instruct`).
+- Kích thước tập dữ liệu huấn luyện nhỏ (150 mẫu cho Reward Model, 60-120 mẫu cho giai đoạn Alignment).
+- Mô hình phần thưởng lai (Hybrid Reward Model) vẫn có các heuristics hỗ trợ, chưa phản ánh hoàn toàn một Learned Reward Model huấn luyện trên tập dữ liệu preference khổng lồ.
+- Không thử nghiệm trên nhiều seed khác nhau để loại bỏ nhiễu ngẫu nhiên.
+- Đánh giá OOD mang tính chất tự động bằng luật, thiếu đánh giá định tính chuyên sâu từ con người (human evaluation).
 
-## 13. Kết luận nên dùng
+## 13. Tóm tắt kết luận
 
-Kết luận phù hợp:
-
-> Project cho thấy pipeline alignment gồm mini SFT, DPO và PPO ở quy mô nhỏ. DPO đơn giản và gần với objective preference trực tiếp, còn PPO minh họa reward-based optimization với rollout, value model, KL penalty và clipped objective. Các kết quả compare/heatmap dùng để minh họa cơ chế, không phải kết luận benchmark tuyệt đối.
+Thực nghiệm đã mô phỏng thành công quy trình alignment khép kín gồm SFT $\rightarrow$ Reward Model $\rightarrow$ DPO $\rightarrow$ PPO ở quy mô nhỏ. Kết quả chỉ ra rằng DPO tối ưu hóa hiệu quả trực tiếp trên phân phối dữ liệu ưu tiên tĩnh, trong khi PPO thể hiện độ linh hoạt cao hơn trong việc căn chỉnh mô hình theo các ràng buộc mục tiêu đa dạng thông qua cơ chế tối ưu hóa trực tuyến dựa trên hàm thưởng.

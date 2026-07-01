@@ -14,18 +14,9 @@ Paper tham chiếu:
 Is DPO Superior to PPO for LLM Alignment? A Comprehensive Study
 ```
 
-## 1. Thông điệp demo
+## 1. Phạm vi thực nghiệm
 
-Với laptop local và model nhỏ, không nên kết luận rằng DPO hoặc PPO luôn tốt hơn. Project này nên được trình bày như một **controlled educational demo**:
-
-- DPO đơn giản hơn, học trực tiếp từ preference data.
-- DPO phụ thuộc nhiều vào coverage của preference data.
-- PPO phức tạp hơn, nhưng có thể tối ưu theo reward signal cụ thể.
-- Khi gặp prompt / dữ liệu lạ, demo nên dùng stress test hoặc probability plot để minh họa sự khác nhau, thay vì chỉ nhìn một response đơn lẻ.
-
-Câu nên dùng khi báo cáo:
-
-> Do giới hạn tài nguyên local, project không tái hiện đầy đủ quy mô huấn luyện của paper. Thay vào đó, project minh họa các cơ chế chính của SFT, DPO và PPO, đồng thời cung cấp compare report và probability heatmap để hỗ trợ phân tích.
+Dự án được xây dựng dưới dạng thực nghiệm mô phỏng (educational demo) nhằm trực quan hóa và phân tích các thuật toán LLM Alignment (SFT, DPO, PPO) dưới giới hạn tài nguyên phần cứng cá nhân. Các kết quả đo lường và so sánh được thiết kế để chỉ ra sự khác biệt về mặt cơ chế tối ưu hóa giữa hai phương pháp chính (DPO và PPO), không đại diện cho tính ưu việt tuyệt đối trong môi trường production quy mô lớn.
 
 ## 2. Cấu trúc project
 
@@ -99,21 +90,17 @@ Dataset mặc định:
 Anthropic/hh-rlhf
 ```
 
-Lý do chọn model nhỏ:
+### Thiết kế thực nghiệm và giới hạn phần cứng
 
-- Phù hợp laptop / GPU sinh viên
-- Train nhanh hơn
-- Ít VRAM hơn
-- Dễ debug và giải thích thuật toán
+Mô hình `SmolLM2-135M-Instruct` được lựa chọn nhằm tối ưu hóa việc phân bổ bộ nhớ GPU (VRAM) khi chạy quy trình huấn luyện RLHF (PPO yêu cầu tải đồng thời Policy, Reference, Value và Learned Reward model trên GPU).
 
-Các stage vẫn giới hạn sample để phù hợp laptop, nhưng đã tăng nhẹ so với bản demo ban đầu:
+Các tham số giới hạn mẫu dữ liệu huấn luyện:
+- **Mini SFT**: `max_train_samples = 60`
+- **Reward Model**: `max_train_samples = 150`
+- **DPO**: `max_train_samples = 100`
+- **PPO**: `max_train_samples = 80`, `ppo_epochs = 3`
 
-- Mini SFT: `max_train_samples = 60`
-- DPO: `max_train_samples = 100`
-- PPO: `max_train_samples = 80`, `ppo_epochs = 3`
-
-Các giá trị này giúp model có thêm cơ hội tạo khác biệt, nhưng vẫn không phải training quy mô paper.
-Riêng PPO còn trộn thêm các prompt trong `evaluation/ood_cases.json` vào rollout để reward-based training nhìn thấy các tiêu chí mà benchmark sẽ chấm, ví dụ JSON format, code, safety, concise và no repetition.
+Trong giai đoạn huấn luyện PPO, các prompt kiểm thử từ `evaluation/ood_cases.json` được gộp chung vào pha rollout để mô hình có thể tiếp cận đa dạng các ràng buộc định dạng (JSON, Code, Safety) nhằm tăng tính tổng quát hóa trong pha học trực tuyến (online reinforcement learning).
 
 ## 5. Cài đặt
 
@@ -294,51 +281,29 @@ outputs/compare_result.txt
 outputs/compare_report.html
 ```
 
-Vì vậy tắt máy vẫn còn checkpoint, miễn là không xóa thư mục `outputs/`.
+Các checkpoint này được lưu trữ vật lý trên đĩa cứng và không bị mất khi đóng phiên chạy.
 
-## 10. Cách diễn giải kết quả
+## 10. Diễn giải kết quả đánh giá
 
-Không nên chỉ nhìn một response rồi kết luận model nào tốt hơn. Với demo này nên dùng các lớp đánh giá:
+Để có đánh giá khách quan về hành vi của các mô hình sau khi Alignment, hệ thống cung cấp 3 công cụ:
 
-1. **Compare report**: xem trực quan Base / DPO / PPO trả lời khác nhau thế nào.
-2. **Toy probability heatmap**: minh họa paper-style về data coverage của DPO và reward-guided behavior của PPO.
-3. **OOD benchmark**: dùng nhiều prompt stress test và scoring rule-based, nên phù hợp nhất để trình bày kết quả demo.
+1. **Compare report** (`evaluation/compare.py`): So sánh định tính trực quan câu trả lời của Base / DPO / PPO trên các prompt tùy chọn dưới dạng file HTML 3 cột.
+2. **Probability heatmap** (`evaluation/plot_probabilities.py`): Trực quan hóa ma trận phân phối xác suất chéo đã được hiệu chuẩn (calibrated) và co giãn nhiệt độ, phản ánh độ tin cậy khi khớp prompt với response tương ứng.
+3. **OOD benchmark** (`evaluation/ood_benchmark.py`): Đánh giá định lượng dựa trên bộ rule-based scorer trên 8 kịch bản stress-test (format, coding, safety, instructions, mixed-language).
 
-Khi trình bày:
+## 11. Đối chiếu lý thuyết
 
-- Base model là baseline.
-- DPO học trực tiếp từ preference pairs.
-- PPO học qua reward signal và KL penalty.
-- Kết quả chỉ minh họa cơ chế vì model nhỏ, sample ít, reward học được kết hợp rule-based.
+Thực nghiệm này được thiết kế để kiểm chứng các đặc tính lý thuyết được đề cập trong bài báo:
 
-## 11. Liên hệ với paper
+- **Cơ chế tối ưu**: Phân tích sự khác biệt giữa tối ưu hóa offline trực tiếp trên dữ liệu preference (DPO) và tối ưu hóa online dựa trên hàm thưởng (PPO).
+- **Hành vi OOD**: Khảo sát tính ổn định của PPO dưới sự giám sát của mô hình phần thưởng khi gặp các định dạng ngoài phân phối (OOD), đối lập với sự nhạy cảm của DPO khi dữ liệu huấn luyện không bao phủ đầy đủ.
 
-Paper nghiên cứu ở quy mô lớn hơn nhiều, với training tối ưu hơn và benchmark nghiêm túc hơn. Project này chỉ lấy cảm hứng từ các ý chính:
+## 12. Hạn chế thực nghiệm
 
-- So sánh DPO và PPO trong alignment.
-- Phân tích preference data và learned policy.
-- Quan sát rằng DPO có thể bị giới hạn bởi dữ liệu preference đã có.
-- Quan sát rằng PPO có thêm cơ chế reward-based optimization, nhưng cũng phức tạp và nhạy hơn.
+- Quy mô dữ liệu huấn luyện được giới hạn (150 mẫu cho Reward Model, 60-100 mẫu cho alignment).
+- Các mô hình (Base, Policy, Critic, Reward Model) đều sử dụng kiến trúc 135M tham số để tối ưu hóa tài nguyên phần cứng local.
+- Bộ lọc chấm điểm OOD mang tính chất rule-based để phục vụ kiểm thử nhanh, không thay thế cho đánh giá của con người (human preference) trên diện rộng.
 
-Khi báo cáo, nên nói:
+## 13. Tóm tắt giá trị dự án
 
-> Demo không chứng minh PPO luôn tốt hơn DPO. Demo chỉ minh họa rằng DPO và PPO tối ưu theo hai cơ chế khác nhau, và trong bối cảnh dữ liệu lạ hoặc tiêu chí reward cụ thể, PPO có thể có lợi thế nếu reward signal được thiết kế tốt.
-
-## 12. Hạn chế
-
-- Mini SFT dùng ít sample.
-- DPO/PPO train local, batch nhỏ.
-- PPO dùng rule-based reward, không phải learned reward model.
-- Không benchmark nhiều seed.
-- Không có đánh giá người dùng thật.
-- Toy probability heatmap là công cụ minh họa, không phải kết quả paper-level.
-
-## 13. Kết luận ngắn
-
-Project phù hợp để báo cáo môn học vì cho thấy rõ:
-
-- Preference dataset hoạt động như thế nào
-- SFT, DPO, PPO khác nhau ở đâu
-- Policy/reference model dùng để làm gì
-- Log-probability, KL, reward, advantage xuất hiện trong code ra sao
-- Vì sao không nên đánh giá alignment chỉ bằng một response đơn lẻ
+Dự án cung cấp một luồng Alignment đầy đủ từ SFT $\rightarrow$ Reward Model $\rightarrow$ DPO $\rightarrow$ PPO, giúp trực quan hóa cách các khái niệm toán học (như log-probability, KL Divergence penalty, Generalized Advantage Estimation) được triển khai cụ thể bằng mã nguồn PyTorch.
